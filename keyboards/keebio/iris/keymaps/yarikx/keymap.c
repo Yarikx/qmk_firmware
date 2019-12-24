@@ -14,26 +14,6 @@ enum custom_keycodes {
   ADJUST,
 };
 
-enum td_keycodes {
-  ALT_LGUI_SPC // Our example key: `LALT` when held, `(` when tapped. Add additional keycodes for each tapdance.
-};
-
-typedef enum {
-  SINGLE_TAP,
-  SINGLE_HOLD,
-} td_state_t;
-
-static td_state_t td_state;
-
-// function to determine the current tapdance state
-int cur_dance (qk_tap_dance_state_t *state);
-
-// `finished` and `reset` functions for each tapdance keycode
-void altlp_finished (qk_tap_dance_state_t *state, void *user_data);
-void altlp_reset (qk_tap_dance_state_t *state, void *user_data);
-
-#define MT_AL_CH TD(ALT_LGUI_SPC)
-
 const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
 
   [_QWERTY] = LAYOUT(
@@ -44,7 +24,7 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
   //├────────┼────────┼────────┼────────┼────────┼────────┤                          ├────────┼────────┼────────┼────────┼────────┼────────┤
      KC_LCTL, KC_A,    KC_S,    KC_D,    KC_F,    KC_G,                               KC_H,    KC_J,    KC_K,    KC_L,    KC_SCLN, KC_QUOT,
   //├────────┼────────┼────────┼────────┼────────┼────────┼────────┐        ┌────────┼────────┼────────┼────────┼────────┼────────┼────────┤
-     KC_LSFT, KC_Z,    KC_X,    KC_C,    KC_V,    KC_B,    KC_MPLY,          MT_AL_CH,KC_N,    KC_M,    KC_COMM, KC_DOT,  KC_SLSH, KC_RSFT,
+     KC_LSFT, KC_Z,    KC_X,    KC_C,    KC_V,    KC_B,    KC_MPLY,      LGUI(KC_SPC),KC_N,    KC_M,    KC_COMM, KC_DOT,  KC_SLSH, KC_RSFT,
   //└────────┴────────┴────────┴───┬────┴───┬────┴───┬────┴───┬────┘        └───┬────┴───┬────┴───┬────┴───┬────┴────────┴────────┴────────┘
                                     KC_LGUI, LOWER,   KC_SPC,                    KC_ENT,  RAISE,   KC_RALT
                                 // └────────┴────────┴────────┘                 └────────┴────────┴────────┘
@@ -93,47 +73,38 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
   )
 };
 
-// determine the tapdance state to return
-int cur_dance (qk_tap_dance_state_t *state) {
-  if (state->count == 1) {
-    if (state->interrupted || !state->pressed) { return SINGLE_TAP; }
-    else { return SINGLE_HOLD; }
+bool lgui_pressed = false;
+bool lower_pressed = false;
+bool both_pressed = false;
+
+bool process_left_alt(uint16_t keycode, keyrecord_t *record) {
+  if (lgui_pressed && lower_pressed) {
+    //unregister lgui
+    unregister_code(KC_LGUI);
+    register_code(KC_LALT);
+    both_pressed = true;
+    return true;
+  } else if (both_pressed && lgui_pressed && !lower_pressed) {
+    unregister_code(KC_LALT);
+    register_code(KC_LGUI);
+    both_pressed = false;
+    return false;
+  } else if (both_pressed && lower_pressed && !lgui_pressed) {
+    unregister_code(KC_LALT);
+    both_pressed = false;
+    return false;
   }
-  else { return 2; } // any number higher than the maximum state value you return above
+  return false;
 }
-
-// handle the possible states for each tapdance keycode you define:
-
-void altlp_finished (qk_tap_dance_state_t *state, void *user_data) {
-  td_state = cur_dance(state);
-  switch (td_state) {
-    case SINGLE_TAP:
-      register_code16(LGUI(KC_SPC));
-      break;
-    case SINGLE_HOLD:
-      register_mods(MOD_BIT(KC_LALT)); // for a layer-tap key, use `layer_on(_MY_LAYER)` here
-      break;
-  }
-}
-
-void altlp_reset (qk_tap_dance_state_t *state, void *user_data) {
-  switch (td_state) {
-    case SINGLE_TAP:
-      unregister_code16(LGUI(KC_SPC));
-      break;
-    case SINGLE_HOLD:
-      unregister_mods(MOD_BIT(KC_LALT)); // for a layer-tap key, use `layer_off(_MY_LAYER)` here
-      break;
-  }
-}
-
-// define `ACTION_TAP_DANCE_FN_ADVANCED()` for each tapdance keycode, passing in `finished` and `reset` functions
-qk_tap_dance_action_t tap_dance_actions[] = {
-  [ALT_LGUI_SPC] = ACTION_TAP_DANCE_FN_ADVANCED(NULL, altlp_finished, altlp_reset)
-};
 
 bool process_record_user(uint16_t keycode, keyrecord_t *record) {
   switch (keycode) {
+    case KC_LGUI:
+      lgui_pressed = record->event.pressed;
+      if (process_left_alt(keycode, record)) {
+        return true;
+      }
+      break;
     case QWERTY:
       if (record->event.pressed) {
         set_single_persistent_default_layer(_QWERTY);
@@ -141,6 +112,10 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
       return false;
       break;
     case LOWER:
+      lower_pressed = record->event.pressed;
+      if (process_left_alt(keycode, record)) {
+        return true;
+      }
       if (record->event.pressed) {
         layer_on(_LOWER);
         update_tri_layer(_LOWER, _RAISE, _ADJUST);
