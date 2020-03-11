@@ -21,8 +21,14 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #ifndef CONFIG_H
 #define CONFIG_H
 
-#define BLE_NUS_MIN_INTERVAL 30
-#define BLE_NUS_MAX_INTERVAL 70
+// #define BLE_NUS_MIN_INTERVAL 30
+// #define BLE_NUS_MAX_INTERVAL 70
+
+#define BLE_NUS_MIN_INTERVAL 30 // default 60
+#define BLE_NUS_MAX_INTERVAL 30 // default 75
+#define BLE_HID_MAX_INTERVAL 50 // default 90
+#define BLE_HID_SLAVE_LATENCY 2 // default 4
+#define ENABLE_STARTUP_ADV_NOLIST
 
 /* USB Device descriptor parameter */
 #define VENDOR_ID       0xFC51
